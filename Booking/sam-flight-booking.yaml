@@ -1,0 +1,58 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Parameters:
+   AirmilesSnsArn: 
+     Type: String
+     Default: "REPLACE-SNS-TOPIC-ARN-WHEN-READY"
+Resources:
+  ListBookingsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: get-bookings-lambda.handler
+      Runtime: nodejs4.3
+      Policies: AmazonDynamoDBFullAccess
+      Events:
+        GetBookings:
+          Type: Api
+          Properties:
+            Path: /bookings
+            Method: get
+
+  PostBookingFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: booking-lambda.handler
+      Runtime: nodejs4.3
+      Policies: 
+         - AmazonDynamoDBFullAccess
+         - AmazonSNSFullAccess
+      Environment:
+        Variables: 
+          AIRMILES_SNS_ARN: !Ref AirmilesSnsArn
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            Path: /bookings
+            Method: post
+            
+  BookingsDBTable:
+     Type: AWS::DynamoDB::Table
+     Properties: 
+      TableName: "flightbooking"
+      AttributeDefinitions: 
+        - 
+          AttributeName: "booking_number"
+          AttributeType: "S"
+      KeySchema: 
+        - AttributeName: "booking_number"
+          KeyType: HASH
+      ProvisionedThroughput: 
+         ReadCapacityUnits: 5
+         WriteCapacityUnits: 5
+Outputs:
+    BookingAPI: 
+        Description: Booking API Endpoint
+        Value: !Sub 'https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com'
+        Export:
+            Name: BookingAPI

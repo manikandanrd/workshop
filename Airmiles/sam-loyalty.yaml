@@ -1,0 +1,103 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Resources:
+  LoyaltyFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: lambda-loyalty-event-handler.booking_event_handler
+      Runtime: python2.7
+      Policies: AmazonDynamoDBFullAccess
+      Events:
+        SubmitBooking:
+          Type: SNS
+          Properties:
+            Topic:  !Ref BookingTopic
+      Environment:
+        Variables: 
+          TABLE_NAME: !Ref LoyaltyDBTable
+
+  LoyaltyGetFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: lambda-loyalty-get.getbooking_handler
+      Runtime: python2.7
+      Policies: AmazonDynamoDBFullAccess
+      Environment:
+        Variables: 
+          TABLE_NAME: !Ref LoyaltyDBTable
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            Path: /airmiles/{bookingid}
+            Method: get
+      
+  LoyaltyListFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: lambda-loyalty-list.listbooking_handler
+      Runtime: python2.7
+      Policies: AmazonDynamoDBFullAccess
+      Environment:
+        Variables: 
+          TABLE_NAME: !Ref LoyaltyDBTable
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            Path: /airmiles
+            Method: get
+
+  LoyaltyPostFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: lambda-loyalty-post.post_booking_handler
+      Runtime: python2.7
+      Policies: AmazonSNSFullAccess
+      Environment:
+        Variables: 
+          SNS_TOPIC_ARN: !Ref BookingTopic
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            Path: /airmiles
+            Method: post
+
+  LoyaltyDBTable:
+     Type: AWS::DynamoDB::Table
+     Properties: 
+      AttributeDefinitions: 
+        - 
+          AttributeName: "bookingid"
+          AttributeType: "S"
+      KeySchema: 
+        - AttributeName: "bookingid"
+          KeyType: HASH
+      ProvisionedThroughput: 
+         ReadCapacityUnits: 5
+         WriteCapacityUnits: 5
+       
+  BookingTopic: 
+     Type: "AWS::SNS::Topic"
+
+  BookingSubscription:  
+     Type: "AWS::SNS::Subscription"
+     Properties:
+        Endpoint: 
+            Fn::GetAtt: 
+            - "LoyaltyFunction"
+            - "Arn"
+        Protocol: "lambda"
+        TopicArn: !Ref BookingTopic
+Outputs:
+    LoyaltyAPI: 
+        Description: Loyalty API Endpoint
+        Value: !Sub 'https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com'
+        Export:
+            Name: LoyaltyAPI
+    AirmilesSnsArn: 
+        Description: Loyalty SNS Arn
+        Value: !Ref BookingTopic
+        Export:
+            Name: AirmilesSnsArn
